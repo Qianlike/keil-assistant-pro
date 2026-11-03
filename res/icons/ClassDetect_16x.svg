@@ -1,0 +1,18 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g clip-path="url(#clip0_1_19)">
+<path d="M12 4.9395L9.75 2.6895L8.6895 3.75H7.0605L7.8105 3L4.8105 0H4.1895L0 4.1895V4.8105L3 7.8105L4.8105 6H5.25V9.75H6.4395L8.6895 12H9.3105L12 9.3105V8.6895L10.4355 7.125L12 5.5605V4.9395Z" fill="#F6F6F6"/>
+<path d="M9.75 7.5L11.25 9L9 11.25L7.5 9.75L8.25 9H6V5.25H4.5L3 6.75L0.75 4.5L4.5 0.75L6.75 3L5.25 4.5H9L9.75 3.75L11.25 5.25L9 7.5L7.5 6L8.25 5.25H6.75V8.25L8.99925 8.2515L9.75 7.5Z" fill="#C27D1A"/>
+<use xlink:href="#stroke0_1_19" fill="#388A34"/>
+<mask id="stroke1_1_19" maskUnits="userSpaceOnUse" x="7" y="8" width="9" height="8" fill="black">
+<rect fill="white" x="7" y="8" width="9" height="8"/>
+<use xlink:href="#stroke0_1_19"/>
+</mask>
+<path d="M10.1129 15H8.60156L10.5646 9.18182H12.4368L14.3999 15H12.8885L11.522 10.6477H11.4766L10.1129 15ZM9.91122 12.7102H13.0703V13.7784H9.91122V12.7102Z" stroke-width="2" stroke="white" mask="url(#stroke1_1_19)"/>
+</g>
+<defs>
+<clipPath id="clip0_1_19">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+<path id="stroke0_1_19" d="M10.1129 15H8.60156L10.5646 9.18182H12.4368L14.3999 15H12.8885L11.522 10.6477H11.4766L10.1129 15ZM9.91122 12.7102H13.0703V13.7784H9.91122V12.7102Z"/>
+</defs>
+</svg>

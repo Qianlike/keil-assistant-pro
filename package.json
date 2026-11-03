@@ -2,7 +2,7 @@
     "name": "keil-assistant-2026",
     "displayName": "Keil Assistant 2026",
     "description": "An assistant for Keil uVision(fork from Keil Assistant)",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "publisher": "WTL568594290",
     "author": {
         "name": "wtl",
@@ -86,6 +86,14 @@
                 }
             },
             {
+                "command": "explorer.autoDetect",
+                "title": "Auto Detect",
+                "icon": {
+                    "light": "./res/icons/ClassDetect_16x.svg",
+                    "dark": "./res/icons/ClassDetect_16x.svg"
+                }
+            },
+            {
                 "command": "project.switch",
                 "title": "Switch Target",
                 "icon": {
@@ -148,6 +156,11 @@
                     "command": "explorer.open",
                     "group": "navigation",
                     "when": "view == project"
+                },
+                {
+                    "command": "explorer.autoDetect",
+                    "group": "navigation",
+                    "when": "view == project && keilAssistant:hasNoProjects"
                 }
             ],
             "view/item/context": [

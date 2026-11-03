@@ -71,6 +71,55 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   subscriber.push(
+    vscode.commands.registerCommand("explorer.autoDetect", async () => {
+      // 检查是否存在工作区文件夹
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage(
+          "No workspace folder opened, please open a workspace folder first."
+        );
+        return;
+      }
+
+      try {
+        // 扫描工作区中的 Keil 项目文件
+        // 限制条件：
+        //   1. 排除常见大目录（node_modules、.git、dist、AppData 等）
+        //   2. 限制路径深度 ≤ 3 层
+        //   3. maxResults=1 找到第一个即停止，避免无谓扫描
+        const uris = await vscode.workspace.findFiles(
+          "**/*.{uvproj,uvprojx}",
+          "{**/node_modules/**,**/.git/**,**/.vscode/**,**/dist/**,**/build/**,**/bin/**,**/obj/**,**/out/**,**/coverage/**,**/.cache/**,**/.npm/**,**/AppData/**,**/Library/**,**/.gradle/**,**/*/*/*/*/**}",
+          1
+        );
+
+        if (uris && uris.length > 0) {
+          // 将扫描到的第一个项目添加到列表，root 使用工作区根目录
+          const uvPrjPath = uris[0].fsPath;
+          const confirm = await vscode.window.showWarningMessage(
+            `Auto detected Keil project: ${node_path.basename(uvPrjPath)}, Add it ?`,
+            { modal: true },
+            "OK"
+          );
+          if (confirm !== "OK") {
+            return;
+          }
+          const wsRoot = workspaceFolders[0].uri.fsPath;
+          await prjExplorer.openProject(uvPrjPath, wsRoot);
+        } else {
+          vscode.window.showWarningMessage(
+            "No Keil uVision project (.uvproj or .uvprojx) found in workspace."
+          );
+        }
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Auto detect failed! msg: ${(<Error>error).message}`
+        );
+      }
+    })
+  );
+
+  subscriber.push(
     vscode.commands.registerCommand("project.close", (item: IView) =>
       prjExplorer.closeProject(item.prjID)
     )
@@ -480,7 +529,9 @@ class KeilProject implements IView, KeilProjectInfo {
 
     keilProcess.unref(); // 让子进程独立运行，父进程退出后子进程继续
 
-    console.log(`[Keil Assistant] Opening project: ${path} with target: ${targetName || 'default'}`);
+    console.log(
+      `[Keil Assistant] Opening project: ${path} with target: ${targetName || "default"}`
+    );
   }
 }
 
@@ -1160,14 +1211,14 @@ class ArmTarget extends Target {
     }
   }
 
-/**
- * <pArmCC>5060750::V5.06 update 6 (build 750)::.\ARM_Compiler_5.06u6</pArmCC>
- * <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
- * <uAC6>0</uAC6>
- * 优先级排序 uAC6 > pArmCC > pCCUsed
- * 当use default compiler时，pArmCC可能不存在
- * @returns 
- */
+  /**
+   * <pArmCC>5060750::V5.06 update 6 (build 750)::.\ARM_Compiler_5.06u6</pArmCC>
+   * <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
+   * <uAC6>0</uAC6>
+   * 优先级排序 uAC6 > pArmCC > pCCUsed
+   * 当use default compiler时，pArmCC可能不存在
+   * @returns
+   */
   private getCompilerDir(target: any): File | undefined {
     const exeFile = new File(ResourceManager.getInstance().getArmUV4Path());
     if (!exeFile.IsFile()) {
@@ -1475,6 +1526,9 @@ class ProjectExplorer implements vscode.TreeDataProvider<IView> {
         this.onItemClick(item)
       )
     );
+
+    // 初始化上下文变量
+    this.updateContext();
   }
 
   async loadWorkspace() {
@@ -1506,15 +1560,18 @@ class ProjectExplorer implements vscode.TreeDataProvider<IView> {
     }
   }
 
-  async openProject(path: string): Promise<KeilProject | undefined> {
+  async openProject(
+    path: string,
+    rootOverride?: string
+  ): Promise<KeilProject | undefined> {
     const projxFile = new File(path);
     const fileLocationList =
       ResourceManager.getInstance().getProjectFileLocationList();
     const tarFile = fileLocationList.find((file) => {
       return file.path === projxFile.path;
     });
-    let root = tarFile?.root || projxFile.dir;
-    if (!tarFile || !tarFile.root) {
+    let root = rootOverride || tarFile?.root || projxFile.dir;
+    if (!rootOverride && (!tarFile || !tarFile.root)) {
       const projxFileBaseName = projxFile.noSuffixName;
       root =
         (
@@ -1622,6 +1679,19 @@ class ProjectExplorer implements vscode.TreeDataProvider<IView> {
 
   updateView() {
     this.viewEvent.fire(undefined);
+    this.updateContext();
+  }
+
+  /**
+   * 更新上下文变量，控制 "Auto Detect" 按钮的显示
+   * 当项目列表为空时显示该按钮
+   */
+  private updateContext() {
+    vscode.commands.executeCommand(
+      "setContext",
+      "keilAssistant:hasNoProjects",
+      this.prjList.size === 0
+    );
   }
 
   //----------------------------------

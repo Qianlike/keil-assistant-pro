@@ -1,6 +1,11 @@
 # Change Log
 
 All notable changes to the "keil-assistant-2026" extension will be documented in this file.
+## [v0.0.7]
+- 新增 Auto Detect 命令及图标
+- 实现自动扫描工作区中 .uvproj 项目文件
+- 更新 README 文档说明新功能
+
 ## [v0.0.6]
 - Keil MDK includePath匹配后安装的Compiler
 - Keil C51 includePath增加C51/INC的子目录

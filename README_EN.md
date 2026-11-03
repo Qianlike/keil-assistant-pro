@@ -50,7 +50,7 @@ It provides syntax highlighting, code snippets for Keil projects, and supports c
 
 1. Create a project on Keil, add files, header path, etc
 > 
-2. Click **Open the Project** icon or **Use Vscode to directly open the directory where keil project file (.uvproj) is located**, and the keil project will be automatically loaded by the plug-in;
+2. Click **Open the Project** icon or **Auto Detect** to load the keil project by the plug-in
  
  ![load](./res/preview/load.png)
 
