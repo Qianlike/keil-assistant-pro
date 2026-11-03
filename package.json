@@ -2,7 +2,7 @@
     "name": "keil-assistant-2026",
     "displayName": "Keil Assistant 2026",
     "description": "An assistant for Keil uVision(fork from Keil Assistant)",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "WTL568594290",
     "author": {
         "name": "wtl",

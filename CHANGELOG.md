@@ -1,6 +1,10 @@
 # Change Log
 
 All notable changes to the "keil-assistant-2026" extension will be documented in this file.
+## [v0.0.6]
+- Keil MDK includePath匹配后安装的Compiler
+- Keil C51 includePath增加C51/INC的子目录
+- (已知问题):某些意外情况use default compiler verisonxxx会导致project xml中的pArmCC/pCCUsed与实际使用的compiler不一致。可以通过选择指定版本来解决。(目前已知set dafault arm compiler version可能会导致这种情况)
 
 ## [v0.0.5]
 - 增加一个`Open with keil`的右键菜单

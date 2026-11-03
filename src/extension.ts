@@ -919,9 +919,16 @@ class C51Target extends Target {
   protected getSystemIncludes(target: any): string[] | undefined {
     const exeFile = new File(ResourceManager.getInstance().getC51UV4Path());
     if (exeFile.IsFile()) {
-      return [
-        node_path.dirname(exeFile.dir) + File.sep + "C51" + File.sep + "INC",
-      ];
+      const incDir = new File(
+        node_path.join(node_path.dirname(exeFile.dir), "C51", "INC")
+      );
+      if (incDir.IsDir()) {
+        return [incDir.path].concat(
+          incDir.GetList(File.EMPTY_FILTER).map((dir) => {
+            return dir.path;
+          })
+        );
+      }
     }
     return undefined;
   }
@@ -1139,10 +1146,111 @@ class ArmTarget extends Target {
   ];
 
   private static armclangBuildinMacros: string[] | undefined;
+  private static armclangExePath: string | undefined;
 
   constructor(prjInfo: KeilProjectInfo, uvInfo: uVisonInfo, targetDOM: any) {
     super(prjInfo, uvInfo, targetDOM);
-    ArmTarget.initArmclangMacros();
+    if (targetDOM["uAC6"] === "1") {
+      const ccDir = this.getCompilerDir(targetDOM);
+      if (ccDir) {
+        ArmTarget.initArmclangMacros(
+          node_path.join(ccDir.path, "bin", "armclang.exe")
+        );
+      }
+    }
+  }
+
+/**
+ * <pArmCC>5060750::V5.06 update 6 (build 750)::.\ARM_Compiler_5.06u6</pArmCC>
+ * <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
+ * <uAC6>0</uAC6>
+ * 优先级排序 uAC6 > pArmCC > pCCUsed
+ * 当use default compiler时，pArmCC可能不存在
+ * @returns 
+ */
+  private getCompilerDir(target: any): File | undefined {
+    const exeFile = new File(ResourceManager.getInstance().getArmUV4Path());
+    if (!exeFile.IsFile()) {
+      return undefined;
+    }
+    const mdkRoot = node_path.dirname(exeFile.dir);
+
+    const wantAc6 = target["uAC6"] === "1";
+    const defaultName = wantAc6 ? "ARMCLANG" : "ARMCC";
+
+    // pCCUsed / pArmCC format: "<build>::<version>::<relative-path>"
+    const parseEntry = (
+      raw: any
+    ): { build: string; path: string; isAc6: boolean } | undefined => {
+      if (typeof raw !== "string") {
+        return undefined;
+      }
+      const parts = raw.split("::");
+      if (parts.length < 2) {
+        return undefined;
+      }
+      const build = parts[0].trim();
+      const path = parts.length >= 3 ? parts[2].trim() : "";
+      // AC5 build numbers start with '5', AC6 with '6'
+      const isAc6 = build.startsWith("6");
+      return { build, path, isAc6 };
+    };
+
+    const resolveCompilerPath = (compilerPath: string): File | undefined => {
+      if (compilerPath === "") {
+        return undefined;
+      }
+      if (node_path.isAbsolute(compilerPath)) {
+        const dir = new File(compilerPath);
+        if (dir.IsDir()) {
+          return dir;
+        }
+        return undefined;
+      }
+      // the recorded path may or may not already include the "ARM" folder
+      const candidates = [compilerPath, node_path.join("ARM", compilerPath)];
+      for (const rel of candidates) {
+        const dir = new File(node_path.join(mdkRoot, rel));
+        if (dir.IsDir()) {
+          return dir;
+        }
+      }
+      return undefined;
+    };
+
+    for (const tag of ["pArmCC", "pCCUsed"]) {
+      let raw: any = target[tag];
+      if (raw === undefined) {
+        try {
+          raw = target["TargetOption"]["TargetCommonOption"][tag];
+        } catch (error) {
+          raw = undefined;
+        }
+      }
+      const entry = parseEntry(raw);
+      if (!entry) {
+        continue;
+      }
+      // "use default version": no install location provided
+      if (entry.path === "") {
+        continue;
+      }
+      // the tag must match the desired compiler kind, otherwise ignore it
+      if (entry.isAc6 !== wantAc6) {
+        continue;
+      }
+      const dir = resolveCompilerPath(entry.path);
+      if (dir) {
+        return dir;
+      }
+    }
+
+    // fallback to the legacy default location
+    const fallback = new File(node_path.join(mdkRoot, "ARM", defaultName));
+    if (fallback.IsDir()) {
+      return fallback;
+    }
+    return undefined;
   }
 
   protected checkProject(): Error | undefined {
@@ -1215,20 +1323,12 @@ class ArmTarget extends Target {
     }
   }
 
-  private static initArmclangMacros() {
-    if (ArmTarget.armclangBuildinMacros === undefined) {
-      const armClangPath =
-        node_path.dirname(
-          node_path.dirname(ResourceManager.getInstance().getArmUV4Path())
-        ) +
-        File.sep +
-        "ARM" +
-        File.sep +
-        "ARMCLANG" +
-        File.sep +
-        "bin" +
-        File.sep +
-        "armclang.exe";
+  private static initArmclangMacros(armClangPath: string) {
+    if (
+      ArmTarget.armclangBuildinMacros === undefined ||
+      ArmTarget.armclangExePath !== armClangPath
+    ) {
+      ArmTarget.armclangExePath = armClangPath;
       ArmTarget.armclangBuildinMacros =
         ArmTarget.getArmClangMacroList(armClangPath);
     }
@@ -1278,24 +1378,20 @@ class ArmTarget extends Target {
   }
 
   protected getSystemIncludes(target: any): string[] | undefined {
-    const exeFile = new File(ResourceManager.getInstance().getArmUV4Path());
-    if (exeFile.IsFile()) {
-      const toolName = target["uAC6"] === "1" ? "ARMCLANG" : "ARMCC";
-      const incDir = new File(
-        `${node_path.dirname(exeFile.dir)}${File.sep}ARM${File.sep}${toolName}${
-          File.sep
-        }include`
-      );
-      if (incDir.IsDir()) {
-        return [incDir.path].concat(
-          incDir.GetList(File.EMPTY_FILTER).map((dir) => {
-            return dir.path;
-          })
-        );
-      }
-      return [incDir.path];
+    const ccDir = this.getCompilerDir(target);
+    if (!ccDir) {
+      return undefined;
     }
-    return undefined;
+    const incDir = new File(node_path.join(ccDir.path, "include"));
+    if (!incDir.IsDir()) {
+      // omit a non-existent path instead of writing it into the config
+      return undefined;
+    }
+    return [incDir.path].concat(
+      incDir.GetList(File.EMPTY_FILTER).map((dir) => {
+        return dir.path;
+      })
+    );
   }
 
   protected getIncString(target: any): string {
