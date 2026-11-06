@@ -1140,7 +1140,10 @@ class ArmTarget extends Target {
     "__weak=",
     "__writeonly=",
     "__declspec(x)=",
-    "__attribute__(x)=",
+    // `__attribute__` must NOT be stubbed out: cpptools parses with clang, where
+    // it is a real keyword, and CMSIS builds __PACKED out of it
+    // (`__attribute__((packed, aligned(1)))`). Blanking it silently drops the
+    // packed qualifier, so IntelliSense computes the unpacked enum/struct size.
     "__nonnull__(x)=",
     "__register=",
 
@@ -1202,7 +1205,6 @@ class ArmTarget extends Target {
     "__inline=",
     "__inline__=",
     "__declspec(x)=",
-    "__attribute__(x)=",
     "__nonnull__(x)=",
     "__unaligned=",
     "__promise(x)=",

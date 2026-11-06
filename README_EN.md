@@ -49,7 +49,31 @@ reach the tag database):
 
 > cpptools rebuilds its index after a target switch; allow a few seconds to a minute.
 
-### 3. Packaging fix
+### 3. `__attribute__` is no longer stubbed out, so `__PACKED` types have the right size
+
+The generated `defines` used to contain `__attribute__(x)=`, meant to make cpptools
+tolerate the AC5-specific syntax. But cpptools parses with clang, where
+`__attribute__` is a native keyword, and blanking it breaks CMSIS:
+
+```c
+// cmsis_armclang.h
+#define __PACKED  __attribute__((packed, aligned(1)))
+```
+
+So `typedef enum __PACKED { ... } my_type_t;` reached IntelliSense as
+`typedef enum { ... } my_type_t;` — the `packed` qualifier was gone. Hovering
+`sizeof(my_type_t)` reported the unpacked size (4, say) while the compiler really
+emits 1; for enums with larger values the numbers differ entirely.
+
+The macro has been removed from both the AC5 and the AC6 predefined lists. Measured on
+the same project:
+
+| `__attribute__(x)=` in `defines` | `sizeof(my_type_t)` |
+| --- | --- |
+| present | `4ULL` ❌ |
+| removed | `1ULL` ✅ |
+
+### 4. Packaging fix
 
 `xml2js` was marked as a webpack external, but a vsix does not ship `node_modules`, so the
 packaged extension failed to activate. It is bundled now.

@@ -46,7 +46,30 @@ B target 的库源码目录仍在包含路径里。
 
 > 切换 target 后 cpptools 会重建索引，需要等几秒到一两分钟才稳定。
 
-### 3. 打包脚本修正
+### 3. 不再把 `__attribute__` 定义成空宏，`__PACKED` 结构体/枚举的大小正确
+
+原来生成的 `defines` 里有一条 `__attribute__(x)=`，意图是让 cpptools 忽略 AC5 的
+扩展语法。但 cpptools 用的解析器本身就是 clang，`__attribute__` 是它的原生关键字，
+把这条宏抹掉反而破坏了 CMSIS：
+
+```c
+// cmsis_armclang.h
+#define __PACKED  __attribute__((packed, aligned(1)))
+```
+
+于是 `typedef enum __PACKED { ... } my_type_t;` 在 IntelliSense 眼里变成
+`typedef enum { ... } my_type_t;`，`packed` 完全丢失。悬停 `sizeof(my_type_t)`
+会显示未打包的大小（例如 4），而实际编译结果是 1 —— 位数更大的枚举甚至会算出完全
+不同的值。
+
+该宏已从 AC5/AC6 两套预定义列表中移除。实测同一份工程：
+
+| `defines` 中的 `__attribute__(x)=` | `sizeof(my_type_t)` |
+| --- | --- |
+| 保留 | `4ULL` ❌ |
+| 移除 | `1ULL` ✅ |
+
+### 4. 打包脚本修正
 
 `xml2js` 原本被标记为 webpack external，但 vsix 并不携带 `node_modules`，
 打出来的包安装后会激活失败。现已打进 bundle。
