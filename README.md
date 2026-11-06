@@ -10,6 +10,31 @@
 
 ## [English](./README_EN.md)
 
+## 安装 📦
+
+从 [Releases](https://github.com/Qianlike/keil-assistant-pro/releases) 下载最新的
+`keil-assistant-pro-<版本号>.vsix`，然后：
+
+1. 打开 VS Code 扩展面板
+2. 点击面板右上角的 `...` → **从 VSIX 安装**
+3. 选择下载好的 `.vsix` 文件
+4. 在设置里填写 Keil 可执行文件路径：
+
+   | 设置项 | 说明 |
+   | --- | --- |
+   | `KeilAssistant.MDK.Uv4Path` | ARM 工程用，例如 `D:\keil5\UV4\UV4.exe` |
+   | `KeilAssistant.C51.Uv4Path` | C51 工程用，例如 `C:\Keil_v5\UV4\UV4.exe` |
+
+> 两个路径填的是 `UV4.exe` 的绝对路径，不是所在目录。
+> 同时需要安装 C/C++ 扩展，插件生成的 `c_cpp_properties.json` 依赖它做语法分析。
+
+也可以从源码构建：
+
+```bash
+npm install
+npm run package   # 产出 vsix
+```
+
 ## 本分支新增的功能 🆕
 
 ### 1. `includePath` 不再包含未参与编译的源文件目录
@@ -59,7 +84,7 @@ B target 的库源码目录仍在包含路径里。
 
 于是 `typedef enum __PACKED { ... } my_type_t;` 在 IntelliSense 眼里变成
 `typedef enum { ... } my_type_t;`，`packed` 完全丢失。悬停 `sizeof(my_type_t)`
-会显示未打包的大小（例如 4），而实际编译结果是 1 —— 位数更大的枚举甚至会算出完全
+会显示未打包的大小 4，而实际编译结果是 1 —— 位数更多的枚举甚至会算出完全
 不同的值。
 
 该宏已从 AC5/AC6 两套预定义列表中移除。实测同一份工程：
@@ -69,7 +94,28 @@ B target 的库源码目录仍在包含路径里。
 | 保留 | `4ULL` ❌ |
 | 移除 | `1ULL` ✅ |
 
-### 4. 打包脚本修正
+### 4. 切换 target 时自动切换 C/C++ 配置
+
+`c_cpp_properties.json` 里每个 target 一个配置项，但 cpptools 会自己记住选中的是哪一个。
+在 Keil 视图里切换 target，以前只改了插件内部状态，C/C++ 那边仍停在旧配置上 ——
+IntelliSense、F12、查找引用全部继续按上一个 target 解析。
+
+现在切换 target 后会自动调用 `C_Cpp.ConfigurationSelect` 并传入配置名。
+该命令接收配置名参数，因此切换是静默的，不会弹出选择框。插件加载完成后也会同步一次，
+避免工作区停在上次遗留的配置上。
+
+顺带修掉了多工程的配置名冲突：多个工程的 root 都指向工作区根目录时，它们共用同一份
+`c_cpp_properties.json`，而 target 名常常重名（例如两个工程都有 `TargetA`/`TargetB`），
+后加载的会覆盖前一个。配置名现在带上工程名前缀：
+
+```
+project_a:TargetA   project_a:TargetB
+project_b:TargetA   project_b:TargetB
+```
+
+旧版本留下的裸 target 名配置项会在加载时自动清理。
+
+### 5. 打包脚本修正
 
 `xml2js` 原本被标记为 webpack external，但 vsix 并不携带 `node_modules`，
 打出来的包安装后会激活失败。现已打进 bundle。

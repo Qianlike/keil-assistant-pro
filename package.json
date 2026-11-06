@@ -2,7 +2,7 @@
     "name": "keil-assistant-pro",
     "displayName": "Keil Assistant Pro",
     "description": "An assistant for Keil uVision(fork from Keil Assistant)",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "publisher": "WTL568594290",
     "author": {
         "name": "wtl",

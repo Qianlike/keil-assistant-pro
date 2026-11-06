@@ -308,6 +308,12 @@ interface KeilProjectInfo {
   logger: Console;
 
   toAbsolutePath(rePath: string): string;
+
+  /** path of the `c_cpp_properties.json` this project's targets are written to */
+  getCppPropertiesPath(): string;
+
+  /** target names declared by this project, in uVision order */
+  getTargetNames(): string[];
 }
 
 interface uVisonInfo {
@@ -471,7 +477,54 @@ class KeilProject implements IView, KeilProjectInfo {
     if (tName !== this.activeTargetName) {
       this.activeTargetName = tName;
       this.notifyUpdateView(); // notify data changed
+      this.syncCppConfiguration();
     }
+  }
+
+  /**
+   * Points the C/C++ extension at the active target's configuration.
+   *
+   * `c_cpp_properties.json` holds one entry per target, and cpptools keeps the
+   * selected one per workspace; switching targets in the Keil view used to
+   * leave the old entry selected, so IntelliSense and F12 kept resolving
+   * against the previous target. `C_Cpp.ConfigurationSelect` takes the
+   * configuration name as its argument, so it switches silently.
+   */
+  syncCppConfiguration() {
+    const target = this.getActiveTarget();
+    if (!target) {
+      return;
+    }
+    const propertiesFile = this.getCppPropertiesPath();
+    // both projects may write into the same workspace-level file when their
+    // root is the workspace folder, so renames below have to stay in sync
+    if (
+      node_path.normalize(propertiesFile) !==
+      node_path.normalize(target.getCppPropertiesPath())
+    ) {
+      this.logger.log(
+        `[warn] target '${target.targetName}' writes '${target.getCppPropertiesPath()}', ` +
+          `the active workspace file is '${propertiesFile}'`
+      );
+      return;
+    }
+    vscode.commands
+      .executeCommand("C_Cpp.ConfigurationSelect", target.cppConfigName)
+      .then(undefined, (error) => {
+        // the C/C++ extension is optional; its absence must not break switching
+        this.logger.log(
+          `[warn] C_Cpp.ConfigurationSelect('${target.cppConfigName}'): ${error}`
+        );
+      });
+  }
+
+  getCppPropertiesPath(): string {
+    return this.vscodeDir.path + File.sep + "c_cpp_properties.json";
+  }
+
+  /** target names declared by this project, in uVision order */
+  getTargetNames(): string[] {
+    return this.targetList.map((target) => target.targetName);
   }
 
   getActiveTarget(): Target | undefined {
@@ -551,7 +604,8 @@ abstract class Target implements IView {
 
   protected _event: event.EventEmitter;
   protected project: KeilProjectInfo;
-  protected cppConfigName: string;
+  /** name of this target's entry in `c_cpp_properties.json` */
+  readonly cppConfigName: string;
   protected targetDOM: any;
   protected uvInfo: uVisonInfo;
   protected fGroups: FileGroup[];
@@ -580,7 +634,11 @@ abstract class Target implements IView {
     this.targetName = targetDOM["TargetName"];
     this.label = this.targetName;
     this.tooltip = this.targetName;
-    this.cppConfigName = this.targetName;
+    // Several projects can share one workspace-level c_cpp_properties.json (all
+    // of them whose root is the workspace folder), and their targets often use
+    // the same names. Those entries would collide, so the configuration is
+    // qualified with the project name.
+    this.cppConfigName = `${prjInfo.uvprjFile.noSuffixName}:${this.targetName}`;
     this.includes = new Set();
     this.defines = new Set();
     this.browsePaths = new Set();
@@ -651,10 +709,12 @@ abstract class Target implements IView {
     return Array.from(this.browsePaths);
   }
 
+  getCppPropertiesPath(): string {
+    return this.project.getCppPropertiesPath();
+  }
+
   private updateCppProperties() {
-    const proFile = new File(
-      this.project.vscodeDir.path + File.sep + "c_cpp_properties.json"
-    );
+    const proFile = new File(this.getCppPropertiesPath());
     let obj: any;
 
     if (proFile.IsFile()) {
@@ -667,6 +727,15 @@ abstract class Target implements IView {
     } else {
       obj = this.getDefCppProperties();
     }
+
+    // Earlier versions stored one entry per target under the bare target name.
+    // Those are stale now that the name is qualified with the project, and they
+    // would linger in the configuration picker, so drop them. Only names of
+    // this project's own targets are touched.
+    const legacyNames = new Set(this.project.getTargetNames());
+    obj["configurations"] = obj["configurations"].filter((conf: any) => {
+      return !legacyNames.has(conf.name);
+    });
 
     const configList: any[] = obj["configurations"];
     const index = configList.findIndex((conf) => {
@@ -1688,6 +1757,9 @@ class ProjectExplorer implements vscode.TreeDataProvider<IView> {
       if (this.currentActiveProject == undefined) {
         this.currentActiveProject = nPrj;
         this.currentActiveProject.active();
+        // the workspace may have been left on another project's configuration,
+        // so align cpptools with the project that just became active
+        this.currentActiveProject.syncCppConfiguration();
       }
 
       this.updateView();

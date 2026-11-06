@@ -9,6 +9,33 @@ symbol navigation follow the active target** in multi-target projects, plus a fi
 
 `npm run package`
 
+## Install 📦
+
+Download the latest `keil-assistant-pro-<version>.vsix` from
+[Releases](https://github.com/Qianlike/keil-assistant-pro/releases), then:
+
+1. Open the Extensions view in VS Code
+2. Click `...` at the top right → **Install from VSIX...**
+3. Pick the downloaded `.vsix`
+
+4. Set the path to your Keil executable:
+
+   | Setting | Purpose |
+   | --- | --- |
+   | `KeilAssistant.MDK.Uv4Path` | ARM projects, e.g. `D:\keil5\UV4\UV4.exe` |
+   | `KeilAssistant.C51.Uv4Path` | C51 projects, e.g. `C:\Keil_v5\UV4\UV4.exe` |
+
+> Both take the absolute path of `UV4.exe`, not the folder containing it.
+> The C/C++ extension is required as well — the generated `c_cpp_properties.json`
+> is what it uses for parsing.
+
+Building from source:
+
+```bash
+npm install
+npm run package   # produces the vsix
+```
+
 ## What this fork adds 🆕
 
 ### 1. `includePath` no longer contains folders that are not part of the build
@@ -62,7 +89,7 @@ tolerate the AC5-specific syntax. But cpptools parses with clang, where
 
 So `typedef enum __PACKED { ... } my_type_t;` reached IntelliSense as
 `typedef enum { ... } my_type_t;` — the `packed` qualifier was gone. Hovering
-`sizeof(my_type_t)` reported the unpacked size (4, say) while the compiler really
+`sizeof(my_type_t)` reported the unpacked size (4) while the compiler really
 emits 1; for enums with larger values the numbers differ entirely.
 
 The macro has been removed from both the AC5 and the AC6 predefined lists. Measured on
@@ -73,7 +100,30 @@ the same project:
 | present | `4ULL` ❌ |
 | removed | `1ULL` ✅ |
 
-### 4. Packaging fix
+### 4. Switching a Keil target switches the C/C++ configuration too
+
+`c_cpp_properties.json` holds one entry per target, but cpptools remembers which entry is
+selected. Switching targets in the Keil view used to change only the extension's internal
+state, leaving the C/C++ extension on the previous entry — IntelliSense, Go to Definition
+and Find All References all kept resolving against the old target.
+
+The extension now calls `C_Cpp.ConfigurationSelect` with the configuration name after a
+switch. That command accepts the name as an argument, so the switch is silent — no picker
+appears. It also syncs once after loading, so a workspace left on a stale entry is fixed.
+
+This also fixes a configuration-name collision: when several projects use the workspace
+folder as their root they share one `c_cpp_properties.json`, and their targets commonly
+have the same names (`TargetA`/`TargetB` in both, say), so the last one loaded overwrote
+the other. Configuration names are now prefixed with the project name:
+
+```
+project_a:TargetA   project_a:TargetB
+project_b:TargetA   project_b:TargetB
+```
+
+Entries left under the bare target name by earlier versions are cleaned up on load.
+
+### 5. Packaging fix
 
 `xml2js` was marked as a webpack external, but a vsix does not ship `node_modules`, so the
 packaged extension failed to activate. It is bundled now.
