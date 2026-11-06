@@ -1,17 +1,71 @@
 # Keil Assistant Pro
 
-[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-pro)
-### Fork自 [keil-assistant](https://github.com/github0null/keil-assistant)
-由于原插件不再更新，且在使用过程中遇到了一些问题，因此 fork 了该项目，进行了一些修改方便使用。
+### 分叉自 [WTL568594290 / keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026)
 
-- 添加项目时,可以选择生成的c_cpp_properties.json文件相对于keil uvproj文件的路径 *之前是在uvproj文件所在目录生成的*
-- 增加两个C51的snippet用来防止interrupt x报错
-  - isr 中断处理函数
-  - INTERRUPT 中断向量宏
+上游链路：[github0null / keil-assistant](https://github.com/github0null/keil-assistant) → [wtl568594290 / keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026) → 本项目
 
-`vsce package`
+本项目在上游 `d65fcf2` 基础上继续维护，重点解决**多 target 项目里代码提示与符号跳转不跟随当前 target** 的问题，并附带一个开箱可用的构建脚本。
+
+`npm run package`
 
 ## [English](./README_EN.md)
+
+## 本分支新增的功能 🆕
+
+### 1. `includePath` 不再包含未参与编译的源文件目录
+
+Keil 里常把不同芯片的库放在互斥的文件组，靠 `IncludeInBuild=0` 屏蔽。
+原实现不管文件是否参与编译，都把所在目录塞进 `includePath`，导致切到 A target 时，
+B target 的库源码目录仍在包含路径里。
+
+现在只收集**实际参与编译**的文件所在目录，两个 target 的库目录因此互不包含。
+
+### 2. 写入 `browse.path`，让「转到定义 / 查找引用」也跟随 target
+
+这是多 target 项目里最容易被忽略的一处。`includePath` 只影响 IntelliSense 的解析；
+**「转到定义」(F12) 和「查找全部引用」查的是 cpptools 的 tag parser 索引库**，
+而它的数据来源是 `browse.path`。
+
+配置里若没有 `browse.path`，cpptools 会退化为递归索引**整个工作区** —— 于是同一个
+符号会同时列出各 target 对应的实现，无论当前激活的是哪个 target。
+
+现在按当前 target 参与编译的源文件目录生成 `browse.path`，并设
+`limitSymbolsToIncludedHeaders: false`（否则 `.c` 里的符号进不了索引库）。生成的片段：
+
+```jsonc
+{
+  "name": "<target>",
+  "includePath": [ /* ... */ ],
+  "defines": [ /* ... */ ],
+  "browse": {
+    "path": [ "…\\<当前 target 的源文件目录>", /* ... */ ],
+    "limitSymbolsToIncludedHeaders": false
+  }
+}
+```
+
+> 切换 target 后 cpptools 会重建索引，需要等几秒到一两分钟才稳定。
+
+### 3. 打包脚本修正
+
+`xml2js` 原本被标记为 webpack external，但 vsix 并不携带 `node_modules`，
+打出来的包安装后会激活失败。现已打进 bundle。
+
+## 来自上游的特性
+
+以下特性继承自 [keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026)：
+
+- 自动检测工作区中的 Keil 项目（Auto Detect）
+- `includePath` 匹配本机安装的编译器
+- C51 的 `includePath` 增加 `C51/INC` 子目录
+- 「Open with keil」右键菜单
+
+以及更上游 [keil-assistant](https://github.com/github0null/keil-assistant) 的原始特性：
+
+- 添加项目时可选择 `c_cpp_properties.json` 相对 `uvprojx` 的生成路径
+- 两个 C51 snippet，避免 `interrupt x` 报错
+  - `isr` 中断处理函数
+  - `INTERRUPT` 中断向量宏
 
 ## 简述 📑
 

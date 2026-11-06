@@ -1,15 +1,74 @@
 # Keil Assistant Pro
 
-[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-pro)
-### Fork from [keil-assistant](https://github.com/github0null/keil-assistant)
-Due to the original plugin no longer being updated and encountering some issues during use, the project was forked and some modifications were made for ease of use.
-- When adding a project, you can choose to generate the path *of the generated c_cpp_properties. json file relative to the keil uvproj file, which was previously generated in the directory where the uvproj file is located*
-- Remember the path to the keil uvproj file, and use this path to open the keil project when opening any file. *The dialog box for adding a project originally defaults to the path where the current open file is located*
-- Add two C51 snippets to prevent interrupt x errors
-  - isr interrupt handler function
-  - INTERRUPT interrupt vector macro
+### Forked from [WTL568594290 / keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026)
 
-`vsce package`
+Upstream chain: [github0null / keil-assistant](https://github.com/github0null/keil-assistant) → [wtl568594290 / keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026) → this project
+
+This project continues from upstream `d65fcf2`, focusing on making **IntelliSense and
+symbol navigation follow the active target** in multi-target projects, plus a fixed build script.
+
+`npm run package`
+
+## What this fork adds 🆕
+
+### 1. `includePath` no longer contains folders that are not part of the build
+
+Keil projects commonly keep the libraries of different chips in mutually exclusive file
+groups, disabled with `IncludeInBuild=0`. The original implementation added a folder to
+`includePath` regardless of whether its files were compiled, so the other target's library
+sources stayed on the include path.
+
+Only folders of files that **actually take part in the build** are collected now, so two
+targets no longer see each other's library folders.
+
+### 2. `browse.path` is written, so Go to Definition / Find All References follow the target
+
+This is the easily missed half of the problem. `includePath` only drives IntelliSense
+parsing; **Go to Definition (F12) and Find All References query the cpptools tag parser
+database**, which is fed from `browse.path`.
+
+When `browse.path` is absent, cpptools falls back to indexing the **entire workspace**
+recursively — so the same symbol lists the implementations of every target, no matter
+which one is active.
+
+`browse.path` is now generated from the folders of the active target's compiled sources,
+with `limitSymbolsToIncludedHeaders: false` (otherwise symbols defined in `.c` files never
+reach the tag database):
+
+```jsonc
+{
+  "name": "<target>",
+  "includePath": [ /* ... */ ],
+  "defines": [ /* ... */ ],
+  "browse": {
+    "path": [ "…\\<source folders of the active target>", /* ... */ ],
+    "limitSymbolsToIncludedHeaders": false
+  }
+}
+```
+
+> cpptools rebuilds its index after a target switch; allow a few seconds to a minute.
+
+### 3. Packaging fix
+
+`xml2js` was marked as a webpack external, but a vsix does not ship `node_modules`, so the
+packaged extension failed to activate. It is bundled now.
+
+## Features inherited from upstream
+
+From [keil-assistant-2026](https://github.com/wtl568594290/keil-assistant-2026):
+
+- Auto-detect Keil projects in the workspace
+- `includePath` matched against the compiler installed on this machine
+- C51 `includePath` includes the `C51/INC` subdirectory
+- "Open with keil" context menu entry
+
+From the original [keil-assistant](https://github.com/github0null/keil-assistant):
+
+- Optionally generate `c_cpp_properties.json` relative to the `uvprojx`
+- Two C51 snippets to avoid `interrupt x` errors
+  - `isr` interrupt handler function
+  - `INTERRUPT` interrupt vector macro
 
 ## Summary 📑
 
