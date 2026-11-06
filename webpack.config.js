@@ -15,8 +15,9 @@ const config = {
     },
     devtool: 'source-map',
     externals: {
-        vscode: 'commonjs vscode',
-        xml2js: 'xml2js'
+        vscode: 'commonjs vscode'
+        // xml2js is bundled on purpose: the packaged vsix does not ship
+        // node_modules, so leaving it external breaks activation.
     },
     resolve: {
         // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader

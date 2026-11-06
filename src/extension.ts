@@ -557,6 +557,16 @@ abstract class Target implements IView {
   protected fGroups: FileGroup[];
   protected includes: Set<string>;
   protected defines: Set<string>;
+  /**
+   * Folders the target actually builds from, written to `browse.path`.
+   *
+   * Go to Definition / Find All References do not read `includePath`; they
+   * query the tag parser database, and when `browse.path` is absent cpptools
+   * indexes the whole workspace recursively. Both MCU libraries live in the
+   * same workspace, so without this each target would still resolve symbols
+   * from the other target's library.
+   */
+  protected browsePaths: Set<string>;
 
   private uv4LogFile: File;
   private uv4LogLockFileWatcher: FileWatcher;
@@ -573,6 +583,7 @@ abstract class Target implements IView {
     this.cppConfigName = this.targetName;
     this.includes = new Set();
     this.defines = new Set();
+    this.browsePaths = new Set();
     this.fGroups = [];
     this.uv4LogFile = new File(
       this.project.vscodeDir.path + File.sep + "uv4.log"
@@ -625,10 +636,19 @@ abstract class Target implements IView {
           includePath: undefined,
           defines: undefined,
           intelliSenseMode: "${default}",
+          browse: {
+            path: undefined,
+            limitSymbolsToIncludedHeaders: true,
+          },
         },
       ],
       version: 4,
     };
+  }
+
+  /** `browse.path` entries: folders of sources taking part in the build */
+  private getBrowsePaths(): string[] {
+    return Array.from(this.browsePaths);
   }
 
   private updateCppProperties() {
@@ -653,18 +673,27 @@ abstract class Target implements IView {
       return conf.name === this.cppConfigName;
     });
 
+    const browse = {
+      path: this.getBrowsePaths(),
+      // index every file under those folders, not only included headers,
+      // otherwise symbols of .c files are missing from the tag database
+      limitSymbolsToIncludedHeaders: false,
+    };
+
     if (index === -1) {
       configList.push({
         name: this.cppConfigName,
         includePath: Array.from(this.includes).concat(["${default}"]),
         defines: Array.from(this.defines),
         intelliSenseMode: "${default}",
+        browse: browse,
       });
     } else {
       configList[index]["includePath"] = Array.from(this.includes).concat([
         "${default}",
       ]);
       configList[index]["defines"] = Array.from(this.defines);
+      configList[index]["browse"] = browse;
     }
 
     proFile.Write(JSON.stringify(obj, undefined, 4));
@@ -714,6 +743,7 @@ abstract class Target implements IView {
 
     // set file groups
     this.fGroups = [];
+    this.browsePaths.clear();
 
     let groups: any[];
     if (Array.isArray(_groups)) {
@@ -779,6 +809,7 @@ abstract class Target implements IView {
           // their folder into the IntelliSense configuration.
           if (!isFileExcluded) {
             this.includes.add(f.dir);
+            this.browsePaths.add(f.dir);
           }
           nGrp.sources.push(nFile);
         }
