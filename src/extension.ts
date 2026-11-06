@@ -11,8 +11,8 @@ import { ResourceManager } from "./ResourceManager";
 import { FileWatcher } from "../lib/node_utility/FileWatcher";
 import { Time } from "../lib/node_utility/Time";
 import { isArray } from "util";
-import { CmdLineHandler } from "./CmdLineHandler";
 import { c51Snippets } from "./snippets";
+import { rteIncludePaths } from "./RteIncludes";
 
 let globalSubscriberPush: ((item: any) => void) | null = null;
 
@@ -718,6 +718,10 @@ abstract class Target implements IView {
     if (sysIncludes) {
       incList = incList.concat(sysIncludes);
     }
+    // components from the <RTE> block contribute include folders that uVision
+    // adds implicitly; without them headers such as cmsis_armclang.h are not
+    // found even though the project builds fine inside uVision
+    incList = incList.concat(this.getRteIncludes());
 
     incList.forEach((path) => {
       const realPath = path.trim();
@@ -945,6 +949,19 @@ abstract class Target implements IView {
   protected abstract getSysDefines(target: any): string[];
   protected abstract getGroups(target: any): any[];
   protected abstract getSystemIncludes(target: any): string[] | undefined;
+
+  /** Include folders contributed by the project's &lt;RTE&gt; components */
+  protected getRteIncludes(): string[] {
+    try {
+      const mdkRoot = node_path.dirname(
+        node_path.dirname(ResourceManager.getInstance().getArmUV4Path())
+      );
+      return rteIncludePaths(this.project.uvprjFile.Read(), mdkRoot);
+    } catch (error) {
+      this.project.logger.log?.(`[warn] RTE includes: ${error}`);
+      return [];
+    }
+  }
 
   protected abstract getOutputFolder(target: any): string | undefined;
   protected abstract parseRefLines(target: any, lines: string[]): string[];
@@ -1466,13 +1483,13 @@ class ArmTarget extends Target {
       if (cpu) {
         args.push(`-mcpu=${cpu}`);
       }
-      args.push("-E", "-dM", "-", "<nul>");
-
-      const cmdLine = CmdLineHandler.quoteString(armClangPath, '"') + " " +
-        args.join(" ");
+      // "-" reads from stdin; feed it an empty input instead of relying on a
+      // shell redirect, which failed under some shells (cmd reported a syntax
+      // error for "<nul>") and silently left the GNU fallback macros behind.
+      args.push("-E", "-dM", "-");
 
       const lines = child_process
-        .execSync(cmdLine)
+        .execFileSync(armClangPath, args, { input: "" })
         .toString()
         .split(/\r\n|\n/);
       const resList: string[] = [];
