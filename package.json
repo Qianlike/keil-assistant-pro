@@ -1,6 +1,6 @@
 {
-    "name": "keil-assistant-2026",
-    "displayName": "Keil Assistant 2026",
+    "name": "keil-assistant-pro",
+    "displayName": "Keil Assistant Pro",
     "description": "An assistant for Keil uVision(fork from Keil Assistant)",
     "version": "0.0.7",
     "publisher": "WTL568594290",
@@ -15,7 +15,7 @@
         "8051",
         "stm32"
     ],
-    "homepage": "https://github.com/wtl568594290/keil-assistant-2026",
+    "homepage": "https://github.com/wtl568594290/keil-assistant-pro",
     "engines": {
         "vscode": "^1.38.0"
     },
@@ -31,10 +31,10 @@
     "main": "./dist/extension.js",
     "repository": {
         "type": "git",
-        "url": "https://github.com/wtl568594290/keil-assistant-2026.git"
+        "url": "https://github.com/wtl568594290/keil-assistant-pro.git"
     },
     "bugs": {
-        "url": "https://github.com/wtl568594290/keil-assistant-2026/issues",
+        "url": "https://github.com/wtl568594290/keil-assistant-pro/issues",
         "email": "568594290@qq.com"
     },
     "contributes": {

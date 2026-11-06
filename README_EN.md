@@ -1,6 +1,6 @@
-# Keil Assistant 2026
+# Keil Assistant Pro
 
-[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-2026)
+[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-pro)
 ### Fork from [keil-assistant](https://github.com/github0null/keil-assistant)
 Due to the original plugin no longer being updated and encountering some issues during use, the project was forked and some modifications were made for ease of use.
 - When adding a project, you can choose to generate the path *of the generated c_cpp_properties. json file relative to the keil uvproj file, which was previously generated in the directory where the uvproj file is located*
@@ -40,7 +40,7 @@ It provides syntax highlighting, code snippets for Keil projects, and supports c
 
 1. Install the C/C++ plug-in
 >
-2. Go to the Keil Assistant 2026 plug-in Settings and set the absolute path of the Keil executable uv4.exe
+2. Go to the Keil Assistant Pro plug-in Settings and set the absolute path of the Keil executable uv4.exe
  
  ![setting](./res/preview/setting.png)
 

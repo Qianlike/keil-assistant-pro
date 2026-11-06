@@ -1,6 +1,7 @@
 # Change Log
 
-All notable changes to the "keil-assistant-2026" extension will be documented in this file.
+All notable changes to the "keil-assistant-pro" extension will be documented in this file.
+
 ## [v0.0.7]
 - 新增 Auto Detect 命令及图标
 - 实现自动扫描工作区中 .uvproj 项目文件

@@ -1,6 +1,6 @@
-# Keil Assistant 2026
+# Keil Assistant Pro
 
-[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-2026)
+[marketplace](https://marketplace.visualstudio.com/items?itemName=WTL568594290.keil-assistant-pro)
 ### Fork自 [keil-assistant](https://github.com/github0null/keil-assistant)
 由于原插件不再更新，且在使用过程中遇到了一些问题，因此 fork 了该项目，进行了一些修改方便使用。
 
@@ -42,7 +42,7 @@ vscode 上的 Keil 辅助工具，与 c/c++ 插件配合使用.
 
 1. 安装 C/C++ 插件
 >
-2. 进入 Keil Assistant 2026 插件设置，设置好 keil 可执行文件 UV4.exe 的绝对路径
+2. 进入 Keil Assistant Pro 插件设置，设置好 keil 可执行文件 UV4.exe 的绝对路径
  
  ![setting](./res/preview/setting.png)
 
