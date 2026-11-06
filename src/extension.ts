@@ -1235,6 +1235,8 @@ class ArmTarget extends Target {
 
   private static armclangBuildinMacros: string[] | undefined;
   private static armclangExePath: string | undefined;
+  /** CPU the cached predefined macros were expanded for */
+  private static armclangCpu: string | undefined;
 
   constructor(prjInfo: KeilProjectInfo, uvInfo: uVisonInfo, targetDOM: any) {
     super(prjInfo, uvInfo, targetDOM);
@@ -1242,10 +1244,27 @@ class ArmTarget extends Target {
       const ccDir = this.getCompilerDir(targetDOM);
       if (ccDir) {
         ArmTarget.initArmclangMacros(
-          node_path.join(ccDir.path, "bin", "armclang.exe")
+          node_path.join(ccDir.path, "bin", "armclang.exe"),
+          ArmTarget.getCpuName(targetDOM)
         );
       }
     }
+  }
+
+  /**
+   * CPU name for `-mcpu`, taken from the target's <Cpu> string, e.g.
+   *   IRAM(...) IROM(...) CPUTYPE("Cortex-M33") FPU3(SFPU) DSP ...
+   * armclang needs it to expand the predefined macros: without it the target
+   * triple alone makes it fail with "ARMv4 is not supported by this
+   * toolchain", which used to leave the GNU fallback macros behind.
+   */
+  private static getCpuName(target: any): string | undefined {
+    const cpu: any = target["TargetOption"]?.TargetCommonOption?.Cpu;
+    if (typeof cpu !== "string") {
+      return undefined;
+    }
+    const m = /CPUTYPE\("([^"]+)"\)/i.exec(cpu);
+    return m ? m[1].toLowerCase() : undefined;
   }
 
   /**
@@ -1411,14 +1430,18 @@ class ArmTarget extends Target {
     }
   }
 
-  private static initArmclangMacros(armClangPath: string) {
+  private static initArmclangMacros(armClangPath: string, cpu?: string) {
+    // the predefined macros depend on the CPU, so a different CPU means the
+    // cached list has to be rebuilt
     if (
       ArmTarget.armclangBuildinMacros === undefined ||
-      ArmTarget.armclangExePath !== armClangPath
+      ArmTarget.armclangExePath !== armClangPath ||
+      ArmTarget.armclangCpu !== cpu
     ) {
       ArmTarget.armclangExePath = armClangPath;
+      ArmTarget.armclangCpu = cpu;
       ArmTarget.armclangBuildinMacros =
-        ArmTarget.getArmClangMacroList(armClangPath);
+        ArmTarget.getArmClangMacroList(armClangPath, cpu);
     }
   }
 
@@ -1434,12 +1457,19 @@ class ArmTarget extends Target {
     }
   }
 
-  private static getArmClangMacroList(armClangPath: string): string[] {
+  private static getArmClangMacroList(
+    armClangPath: string,
+    cpu?: string
+  ): string[] {
     try {
-      const cmdLine =
-        CmdLineHandler.quoteString(armClangPath, '"') +
-        " " +
-        ["--target=arm-arm-none-eabi", "-E", "-dM", "-", "<nul"].join(" ");
+      const args = ["--target=arm-arm-none-eabi"];
+      if (cpu) {
+        args.push(`-mcpu=${cpu}`);
+      }
+      args.push("-E", "-dM", "-", "<nul>");
+
+      const cmdLine = CmdLineHandler.quoteString(armClangPath, '"') + " " +
+        args.join(" ");
 
       const lines = child_process
         .execSync(cmdLine)
@@ -1461,7 +1491,12 @@ class ArmTarget extends Target {
 
       return resList;
     } catch (error) {
-      return ["__GNUC__=4", "__GNUC_MINOR__=2", "__GNUC_PATCHLEVEL__=1"];
+      // Falling back to GNU macros is wrong here: this is armclang, and
+      // defining __GNUC__ makes CMSIS take the GCC branch of
+      // cmsis_compiler.h, i.e. include cmsis_gcc.h, which the device CMSIS
+      // folders generally do not ship. Emit the AC6 identity instead so the
+      // armclang branch is taken.
+      return ["__ARMCC_VERSION=6190000", "__ARM_ARCH=8", "__arm__=1"];
     }
   }
 
