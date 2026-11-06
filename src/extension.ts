@@ -773,7 +773,13 @@ abstract class Target implements IView {
           }
 
           const nFile = new Source(this.prjID, f, !isFileExcluded);
-          this.includes.add(f.dir);
+          // Only sources that take part in the build belong in the include
+          // path. Excluded files (e.g. the library group of another target,
+          // which is disabled with `IncludeInBuild=0`) would otherwise leak
+          // their folder into the IntelliSense configuration.
+          if (!isFileExcluded) {
+            this.includes.add(f.dir);
+          }
           nGrp.sources.push(nFile);
         }
 
